@@ -1,0 +1,12 @@
+{
+  "name": "استوديو الإنتاج بالذكاء الاصطناعي",
+  "short_name": "استوديو الفيلم",
+  "description": "إدارة مشاريع الفيديو والمسلسلات والشخصيات والمشاهد.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#09080d",
+  "theme_color": "#0a0810",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [{"src":"icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
