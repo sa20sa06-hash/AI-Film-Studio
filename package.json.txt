@@ -1,0 +1,10 @@
+{
+  "name": "ai-film-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first AI film studio project and media manager",
+  "scripts": {
+    "check": "node --check app.js"
+  },
+  "license": "UNLICENSED"
+}
