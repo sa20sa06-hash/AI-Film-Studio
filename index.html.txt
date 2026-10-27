@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a0810">
+  <meta name="description" content="استوديو لإدارة مشاريع الفيديو والمسلسلات والشخصيات والمشاهد.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <title>استوديو الإنتاج بالذكاء الاصطناعي</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">✦</div>
+        <div><strong data-i18n="brand">استوديو الفيلم</strong><small>AI FILM STUDIO</small></div>
+      </div>
+      <nav class="side-nav" aria-label="التنقل الرئيسي">
+        <button class="nav-item active" data-view="home"><span>⌂</span><b data-i18n="navHome">الرئيسية</b></button>
+        <button class="nav-item" data-view="video"><span>▶</span><b data-i18n="navVideo">إنشاء فيديو</b></button>
+        <button class="nav-item" data-view="series"><span>▤</span><b data-i18n="navSeries">المسلسلات</b></button>
+        <button class="nav-item" data-view="characters"><span>♙</span><b data-i18n="navCharacters">الشخصيات</b></button>
+        <button class="nav-item" data-view="assembly"><span>▥</span><b data-i18n="navAssembly">التجميع والمونتاج</b></button>
+        <button class="nav-item" data-view="library"><span>▧</span><b data-i18n="navLibrary">مكتبة الملفات</b></button>
+        <button class="nav-item" data-view="settings"><span>⚙</span><b data-i18n="navSettings">الإعدادات والربط</b></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="connection-pill" id="connectionState"><span class="state-dot"></span><span data-i18n="localMode">حفظ على هذا الجهاز</span></div>
+        <button class="btn btn-quiet full" id="authOpen">↗ <span data-i18n="account">الحساب والمزامنة</span></button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn menu-toggle" id="menuToggle" aria-label="القائمة">☰</button>
+          <div><span class="eyebrow" data-i18n="workspace">مساحة الإنتاج</span><h1 id="pageTitle" data-i18n="navHome">الرئيسية</h1></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-quiet" id="langToggle">EN / AR</button>
+          <button class="avatar-button" id="authAvatar" title="الحساب">◉</button>
+        </div>
+      </header>
+
+      <button id="backButton" class="back-fab" title="رجوع خطوة إلى الخلف"><span>↶</span><span data-i18n="back">رجوع خطوة</span></button>
+
+      <section class="view active" id="view-home">
+        <div class="hero-panel">
+          <div class="hero-copy">
+            <span class="overline"><span class="pulse"></span><span data-i18n="heroTag">مساحة أفكارك السينمائية</span></span>
+            <h2 data-i18n="heroTitle">من الفكرة إلى المشهد.</h2>
+            <p data-i18n="heroText">خطّط قصتك، نظّم شخصياتك، أنشئ المقاطع بالخدمات المجانية المتاحة، ثم اجمعها في مشروع واحد.</p>
+            <div class="hero-actions"><button class="btn btn-primary" data-go="video" data-i18n="createVideo">＋ إنشاء فيديو</button><button class="btn btn-outline" data-go="series" data-i18n="createSeries">إنشاء مسلسل جديد</button></div>
+            <p class="fine-note" data-i18n="freeNote">لا توجد مدفوعات داخل التطبيق. التوليد الخارجي يعتمد على توفر الخدمات المجانية وحصصها.</p>
+          </div>
+          <div class="hero-art" aria-hidden="true"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="film-frame"><span>SCENE 01</span><div class="frame-sun"></div><div class="frame-horizon"></div><div class="frame-silhouette"></div><div class="frame-glow"></div></div><div class="art-caption">STORY · MOTION · CINEMA</div></div>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow" data-i18n="overview">نظرة عامة</span><h2 data-i18n="yourStudio">استوديوك</h2></div><button class="text-button" data-go="library" data-i18n="openLibrary">افتح المكتبة ←</button></div>
+        <div class="stats-grid">
+          <article class="stat-card"><span class="stat-icon">▤</span><span data-i18n="projectsStat">المشاريع</span><strong id="statProjects">0</strong><small data-i18n="savedLocally">محفوظة في مساحة العمل</small></article>
+          <article class="stat-card"><span class="stat-icon">♙</span><span data-i18n="charactersStat">الشخصيات</span><strong id="statCharacters">0</strong><small data-i18n="charactersReady">ملفات الشخصيات</small></article>
+          <article class="stat-card"><span class="stat-icon">▶</span><span data-i18n="assetsStat">الملفات</span><strong id="statAssets">0</strong><small data-i18n="mediaReady">وسائط مضافة</small></article>
+          <article class="stat-card"><span class="stat-icon">◷</span><span data-i18n="tasksStat">مهام التوليد</span><strong id="statJobs">0</strong><small data-i18n="trackedTasks">مسجلة في التطبيق</small></article>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow" data-i18n="quickStart">ابدأ بسرعة</span><h2 data-i18n="productionTools">أدوات الإنتاج</h2></div></div>
+        <div class="feature-grid">
+          <button class="feature-card" data-go="video"><span class="feature-icon purple">▶</span><strong data-i18n="videoFeatureTitle">مولّد الفيديو</strong><span data-i18n="videoFeatureText">افتح محركاً مجانياً خارجياً، ثم أضف المقطع الناتج إلى مشروعك.</span><i>↗</i></button>
+          <button class="feature-card" data-go="series"><span class="feature-icon violet">▤</span><strong data-i18n="seriesFeatureTitle">مخطط المسلسل</strong><span data-i18n="seriesFeatureText">أنشئ مشروعاً ورتّب الحلقات والمشاهد والملاحظات.</span><i>↗</i></button>
+          <button class="feature-card" data-go="characters"><span class="feature-icon rose">♙</span><strong data-i18n="characterFeatureTitle">ملفات الشخصيات</strong><span data-i18n="characterFeatureText">احتفظ بالمراجع والقدرات والنص المستخرج من الصور.</span><i>↗</i></button>
+          <button class="feature-card" data-go="assembly"><span class="feature-icon blue">▥</span><strong data-i18n="assemblyFeatureTitle">تجميع المقاطع</strong><span data-i18n="assemblyFeatureText">أضف المقاطع وعاينها وجهّز قائمة المونتاج.</span><i>↗</i></button>
+        </div>
+        <div class="notice-card"><span class="notice-symbol">i</span><div><strong data-i18n="honestyTitle">معلومة مهمة عن التوليد</strong><p data-i18n="honestyText">التطبيق يدير المشروع ويخطط له. إنشاء فيديو حقيقي يعتمد على محرك خارجي مجاني قد يتوقف أو يفرض طابوراً يومياً؛ لذلك لا نعرض نتيجة وهمية على أنها فيديو مولّد.</p></div></div>
+        <div class="section-heading"><div><span class="eyebrow" data-i18n="recent">الأحدث</span><h2 data-i18n="recentProjects">مشاريعك الأخيرة</h2></div></div>
+        <div class="project-list" id="recentProjects"><div class="empty-state"><span>✦</span><strong data-i18n="noProjects">لا توجد مشاريع بعد</strong><p data-i18n="makeFirstProject">أنشئ أول مشروع من الأزرار أعلاه.</p></div></div>
+      </section>
+
+      <section class="view" id="view-video">
+        <div class="view-intro"><span class="eyebrow" data-i18n="videoWorkspace">مساحة توليد المقاطع</span><h2 data-i18n="makeYourVideo">أنشئ مقطعك</h2><p data-i18n="videoIntro">اكتب وصفاً واضحاً، احتفظ به في المشروع، ثم افتح محرك الفيديو المجاني المتاح. بعد تنزيل النتيجة ارفعها هنا لإضافتها إلى مكتبتك.</p></div>
+        <div class="two-column-layout">
+          <div class="panel form-panel">
+            <label for="videoPrompt" data-i18n="promptLabel">وصف الفيديو</label><textarea id="videoPrompt" rows="5" data-placeholder-i18n="promptPlaceholder" placeholder="صف المكان والشخصية والحركة وزاوية الكاميرا والإضاءة..."></textarea>
+            <div class="form-row"><div><label for="videoStyle" data-i18n="visualStyle">الأسلوب البصري</label><select id="videoStyle"><option value="anime" data-i18n="styleAnime">أنمي أصلي</option><option value="cinematic" data-i18n="styleCinema">واقعي سينمائي</option><option value="2d">2D</option><option value="3d">3D</option><option value="fantasy" data-i18n="styleFantasy">فانتازيا</option><option value="scifi" data-i18n="styleScifi">خيال علمي</option></select></div><div><label for="videoRatio" data-i18n="ratio">نسبة الأبعاد</label><select id="videoRatio"><option>16:9</option><option>9:16</option><option>1:1</option></select></div></div>
+            <div class="form-row"><div><label for="videoDuration" data-i18n="targetDuration">المدة المستهدفة</label><select id="videoDuration"><option value="5">5 sec</option><option value="8">8 sec</option><option value="10">10 sec</option><option value="15">15 sec</option></select></div><div><label for="videoProject" data-i18n="attachProject">إرفاق بمشروع</label><select id="videoProject"><option value="" data-i18n="noProject">دون مشروع</option></select></div></div>
+            <button class="btn btn-primary full" id="saveVideoTask" data-i18n="savePrompt">حفظ وصف المهمة</button>
+            <div class="divider-label"><span data-i18n="engineOptions">محرك التوليد المجاني</span></div>
+            <div class="engine-card"><div class="engine-logo">LTX</div><div class="engine-copy"><strong>LTX 2.3 Studio · Hugging Face</strong><p data-i18n="engineWarning">خدمة مجتمعية مجانية بموارد مشتركة؛ قد تتغير أو تتوقف وقد تفرض انتظاراً أو حصصاً.</p><a href="https://huggingface.co/spaces/techfreakworm/LTX2.3-Studio" target="_blank" rel="noopener noreferrer" class="external-link" data-i18n="openEngine">فتح محرك الفيديو ↗</a></div></div>
+            <div class="direct-engine-box">
+              <div class="panel-heading"><div><span class="eyebrow" data-i18n="directApi">ربط مباشر تجريبي</span><h3 data-i18n="inspectFreeApi">محاولة التوليد من داخل الاستوديو</h3></div><span class="upload-icon">⚡</span></div>
+              <p class="fine-note" data-i18n="directApiNote">يحاول التطبيق قراءة واجهة Gradio العامة تلقائياً. إذا تغيّرت الخدمة أو لم تسمح بالاتصال، استخدم زر فتح المحرك الخارجي.</p>
+              <button class="btn btn-outline full" id="inspectVideoEngine" data-i18n="inspectApiButton">فحص API المجاني</button>
+              <div id="directVideoSetup" class="hidden">
+                <label for="videoEndpoint" data-i18n="chooseEndpoint">نقطة التوليد</label><select id="videoEndpoint"></select>
+                <div id="videoApiParameters" class="api-parameters"></div>
+                <button class="btn btn-primary full" id="runDirectVideo" data-i18n="runDirectGeneration">توليد المقطع الآن</button>
+              </div>
+              <div id="directVideoStatus" class="status-message" aria-live="polite"></div>
+              <div id="directVideoResult" class="direct-result"></div>
+            </div>
+            <p class="fine-note" data-i18n="manualEngineNote">بعد إنشاء المقطع وتنزيله من المحرك الخارجي، ارجع إلى التطبيق واستخدم قسم التجميع لإضافته. الربط المباشر مع API عام مجاني غير مضمون وقد تتغير واجهته.</p>
+          </div>
+          <div class="panel upload-panel"><div class="panel-heading"><div><span class="eyebrow" data-i18n="resultImport">إضافة نتيجة</span><h3 data-i18n="bringClip">أضف مقطعاً جاهزاً</h3></div><span class="upload-icon">⇧</span></div><label class="drop-zone" for="videoUpload"><span class="drop-symbol">＋</span><strong data-i18n="chooseVideo">اختر ملف فيديو من الهاتف</strong><small data-i18n="videoTypes">MP4 أو WebM أو MOV، بحسب دعم المتصفح</small><input type="file" id="videoUpload" accept="video/*" hidden></label><div id="videoPreview" class="preview-box"><div class="preview-placeholder">▶</div><span data-i18n="noPreview">ستظهر المعاينة بعد اختيار ملف.</span></div><label for="assetTitle" data-i18n="assetName">اسم المقطع</label><input id="assetTitle" type="text" placeholder="scene-01.mp4"><button class="btn btn-outline full" id="saveUploadedVideo" data-i18n="saveToLibrary">إضافة إلى المكتبة</button><p class="fine-note" data-i18n="localUploadNote">في الوضع المحلي، يبقى الملف على جهازك ولا يُرفع إلى خادم. المزامنة السحابية للملفات متاحة بعد إعداد Supabase.</p></div>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow" data-i18n="queue">قائمة المهام</span><h2 data-i18n="savedTasks">الأوصاف المحفوظة</h2></div></div><div class="task-list" id="taskList"></div>
+      </section>
+
+      <section class="view" id="view-series">
+        <div class="view-intro"><span class="eyebrow" data-i18n="storyDevelopment">تطوير القصة</span><h2 data-i18n="seriesManager">إدارة المسلسلات والمشاريع</h2><p data-i18n="seriesIntro">أنشئ مشروعاً، ثم أضف الحلقات والمشاهد. يمكن حفظ كل شيء محلياً أو مزامنته بعد إعداد قاعدة البيانات.</p></div>
+        <div class="two-column-layout">
+          <div class="panel form-panel"><h3 data-i18n="newProject">مشروع جديد</h3><form id="projectForm"><label for="projectTitle" data-i18n="projectTitle">اسم المشروع</label><input id="projectTitle" required maxlength="120" data-placeholder-i18n="projectTitlePlaceholder" placeholder="اسم المسلسل أو الفيلم"><label for="projectDescription" data-i18n="projectSynopsis">الفكرة أو الملخص</label><textarea id="projectDescription" rows="4" data-placeholder-i18n="projectDescriptionPlaceholder" placeholder="اكتب الفكرة الأساسية والعالم والشخصيات..."></textarea><div class="form-row"><div><label for="projectType" data-i18n="projectType">نوع المشروع</label><select id="projectType"><option value="series" data-i18n="typeSeries">مسلسل</option><option value="film" data-i18n="typeFilm">فيلم</option><option value="short" data-i18n="typeShort">فيديو قصير</option></select></div><div><label for="projectStatus" data-i18n="projectStatus">الحالة</label><select id="projectStatus"><option value="planning" data-i18n="statusPlanning">تخطيط</option><option value="production" data-i18n="statusProduction">قيد الإنتاج</option><option value="complete" data-i18n="statusComplete">مكتمل</option></select></div></div><button class="btn btn-primary full" type="submit" data-i18n="createProject">إنشاء المشروع</button></form></div>
+          <div class="panel form-panel"><span class="eyebrow" data-i18n="aiPlanning">مساعد تخطيط القصة</span><h3 data-i18n="developTheIdea">طوّر الفكرة</h3><p class="muted" data-i18n="aiPlanningText">بعد إعداد Supabase وإضافة مفتاح مجاني لنموذج نصي، يمكن طلب اقتراح خطة قصة. لا تستخدم هذه الميزة بيانات حساسة لأن النص يُرسل إلى مزود AI.</p><label for="plannerIdea" data-i18n="ideaToDevelop">الفكرة التي تريد تطويرها</label><textarea id="plannerIdea" rows="4" data-placeholder-i18n="plannerPlaceholder" placeholder="البطل، هدفه، العائق، العالم، النبرة..."></textarea><button class="btn btn-outline full" id="planStory" data-i18n="generatePlan">إنشاء مسودة خطة</button><div class="planner-result" id="plannerResult" aria-live="polite"></div></div>
+        </div>
+        <div class="section-heading"><div><span class="eyebrow" data-i18n="allProjects">كل المشاريع</span><h2 data-i18n="projectShelf">رف المشاريع</h2></div></div><div class="project-grid" id="projectGrid"></div>
+        <div class="panel episode-panel" id="episodePanel"><div class="panel-heading"><div><span class="eyebrow" data-i18n="selectedProject">المشروع المحدد</span><h3 id="selectedProjectTitle" data-i18n="chooseProject">اختر مشروعاً</h3></div></div><div class="two-column-layout compact"><form id="episodeForm"><label for="episodeTitle" data-i18n="episodeTitle">عنوان الحلقة</label><input id="episodeTitle" required data-placeholder-i18n="episodeTitlePlaceholder" placeholder="الحلقة الأولى"><label for="episodeSynopsis" data-i18n="episodeSynopsis">ملخص الحلقة</label><textarea id="episodeSynopsis" rows="3"></textarea><button class="btn btn-primary full" type="submit" data-i18n="addEpisode">إضافة حلقة</button></form><form id="sceneForm"><label for="sceneEpisode" data-i18n="sceneEpisode">الحلقة</label><select id="sceneEpisode"></select><label for="sceneTitle" data-i18n="sceneTitle">عنوان المشهد</label><input id="sceneTitle" required data-placeholder-i18n="sceneTitlePlaceholder" placeholder="المشهد الأول"><label for="sceneDescription" data-i18n="sceneDescription">وصف المشهد والحوار</label><textarea id="sceneDescription" rows="3"></textarea><button class="btn btn-outline full" type="submit" data-i18n="addScene">إضافة مشهد</button></form></div><div id="episodeList" class="episode-list"></div></div>
+      </section>
+
+      <section class="view" id="view-characters">
+        <div class="view-intro"><span class="eyebrow" data-i18n="characterBible">دليل الشخصيات</span><h2 data-i18n="characterLibrary">مكتبة الشخصيات</h2><p data-i18n="characterIntro">اجمع وصف الشخصية وقدراتها ومراجعها. جرّب قراءة النص داخل الصورة، ثم راجعه وصححه قبل حفظه.</p></div>
+        <div class="two-column-layout"><div class="panel form-panel"><form id="characterForm"><label for="characterName" data-i18n="characterName">اسم الشخصية</label><input id="characterName" required maxlength="120"><label for="characterDescription" data-i18n="appearance">المظهر والملابس</label><textarea id="characterDescription" rows="3"></textarea><label for="characterAbilities" data-i18n="abilities">القدرات ومستوى القوة</label><textarea id="characterAbilities" rows="3" data-placeholder-i18n="abilitiesPlaceholder" placeholder="اكتب القدرة وحدودها وما لا تستطيع فعله."></textarea><label for="characterNotes" data-i18n="continuityNotes">ملاحظات الاستمرارية</label><textarea id="characterNotes" rows="2"></textarea><label for="characterImage" data-i18n="referenceImage">الصورة المرجعية</label><input id="characterImage" type="file" accept="image/*"><button type="button" id="runOcr" class="btn btn-outline full" data-i18n="readImageText">قراءة النص داخل الصورة</button><label for="characterExtracted" data-i18n="reviewExtracted">النص المستخرج (راجعه وعدّله)</label><textarea id="characterExtracted" rows="4" data-placeholder-i18n="extractedPlaceholder" placeholder="سيظهر النص هنا بعد القراءة؛ راجعه قبل الحفظ."></textarea><button id="saveCharacter" class="btn btn-primary full" type="submit" data-i18n="saveCharacter">حفظ الشخصية</button><p class="fine-note" data-i18n="ocrNote">تعمل القراءة عبر Tesseract.js عند توفر الإنترنت وبيانات اللغة؛ دقة العربية تتفاوت وقد تحتاج إلى تصحيح يدوي.</p></form></div><div><div class="panel reference-panel"><div class="panel-heading"><h3 data-i18n="referencePreview">معاينة المرجع</h3><span class="upload-icon">♙</span></div><div class="image-preview" id="characterPreview"><span>♙</span><small data-i18n="noReference">لم تُختَر صورة بعد</small></div><div id="ocrStatus" class="muted small-text" aria-live="polite"></div></div><div class="character-list" id="characterList"></div></div></div>
+      </section>
+
+      <section class="view" id="view-assembly">
+        <div class="view-intro"><span class="eyebrow" data-i18n="postProduction">ما بعد الإنتاج</span><h2 data-i18n="assemblyTitle">تجميع المقاطع والمونتاج</h2><p data-i18n="assemblyIntro">أضف المقاطع التي نزّلتها، وراجع ترتيبها. هذه النسخة تحفظ قائمة المونتاج وتتيح المعاينة؛ تجميع الملفات فعلياً داخل المتصفح قد يتوقف عند الملفات الكبيرة، ويمكن لاحقاً ربط أداة مجانية مناسبة.</p></div>
+        <div class="panel form-panel"><div class="panel-heading"><h3 data-i18n="addClips">إضافة مقاطع إلى قائمة التجميع</h3><label class="btn btn-outline file-button" for="assemblyUpload" data-i18n="addFiles">＋ إضافة ملفات</label><input id="assemblyUpload" type="file" accept="video/*,audio/*" multiple hidden></div><div id="assemblyList" class="assembly-list"><div class="empty-state"><span>▥</span><strong data-i18n="noAssemblyFiles">قائمة التجميع فارغة</strong></div></div><div class="form-row audio-overlay-row"><div><label for="assemblyAudioTrack" data-i18n="externalAudioTrack">مسار صوت اختياري</label><select id="assemblyAudioTrack"><option value="" data-i18n="noExternalAudio">بدون مسار صوت إضافي</option></select></div><div><label for="audioOffset" data-i18n="audioOffsetLabel">تأخير الصوت (ثوانٍ)</label><input id="audioOffset" type="number" min="0" max="3600" step="0.1" value="0"></div></div><p class="fine-note" data-i18n="audioOverlayNote">يمكن إرفاق تسجيل أو موسيقى من المكتبة. يستبدل المسار الإضافي صوت الفيديو الأصلي في ملف التصدير، ويُطبّق تأخيراً بالثواني؛ لا توجد مزامنة تلقائية لحركة الفم.</p><div class="form-row"><div><label for="exportQuality" data-i18n="exportQuality">الجودة المستهدفة</label><select id="exportQuality"><option value="source" data-i18n="sourceQuality">الحفاظ على جودة المصدر إن أمكن</option><option value="720">720p إن أمكن</option><option value="1080">1080p إن أمكن</option></select></div><div><label for="exportFormat" data-i18n="exportFormat">صيغة الإخراج</label><select id="exportFormat"><option>MP4</option><option>WebM</option></select></div></div><button class="btn btn-outline" id="exportChecklist" data-i18n="prepareExport">إعداد قائمة التصدير</button><button class="btn btn-primary full" id="mergeClips" data-i18n="mergeClips">دمج مقاطع الفيديو وتصدير MP4</button><p class="fine-note" data-i18n="assemblyEngineNote">عند أول استخدام، يحمّل المتصفح محرك FFmpeg المجاني (نحو 31 ميغابايت). المعالجة تتم على الجهاز، وقد تفشل مع ملفات كبيرة أو غير متوافقة. ابدأ بمقطعين صغيرين.</p><progress id="assemblyProgress" class="assembly-progress hidden" value="0" max="100"></progress><div id="assemblyEngineStatus" class="status-message" aria-live="polite"></div><div id="assemblyOutput" class="direct-result"></div><div id="exportNotice" class="notice-card hidden"><span class="notice-symbol">i</span><p data-i18n="exportLimit">إذا تعذر الدمج داخل المتصفح، احتفظ بالمقاطع الأصلية واستخدم أداة مجانية خارجية. لا يتم إنشاء ملف نهائي وهمي.</p></div></div>
+      </section>
+
+      <section class="view" id="view-library">
+        <div class="view-intro"><span class="eyebrow" data-i18n="assetLibrary">أصول المشروع</span><h2 data-i18n="libraryTitle">مكتبة الملفات</h2><p data-i18n="libraryIntro">اعرض الملفات التي أضفتها إلى جلسة العمل. في الوضع المحلي، تُحفظ البيانات الوصفية والوصف فقط؛ رابط الملف المؤقت قد يزول عند إغلاق الصفحة، لذا احتفظ بالملفات الأصلية على الهاتف.</p></div>
+        <div class="toolbar"><input id="librarySearch" type="search" data-placeholder-i18n="librarySearchPlaceholder" placeholder="ابحث في الملفات والمشاريع..."><select id="libraryFilter"><option value="all" data-i18n="allTypes">كل الأنواع</option><option value="video" data-i18n="videosOnly">فيديو</option><option value="audio" data-i18n="audioOnly">صوت</option><option value="image" data-i18n="imagesOnly">صور</option><option value="document" data-i18n="documentsOnly">مستندات</option></select></div><div id="libraryGrid" class="library-grid"></div>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div class="view-intro"><span class="eyebrow" data-i18n="configuration">التكوين</span><h2 data-i18n="settingsTitle">الإعدادات والربط</h2><p data-i18n="settingsIntro">يعمل التطبيق محلياً أولاً. لإضافة الحساب والتخزين السحابي، أنشئ مشروع Supabase مجانياً وأدخل رابط المشروع والمفتاح العام فقط. لا تضع service_role أو أي سر في الواجهة.</p></div>
+        <div class="settings-grid"><div class="panel form-panel"><h3 data-i18n="cloudConnection">اتصال Supabase</h3><label for="supabaseUrl">Project URL</label><input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co"><label for="supabaseAnon">Publishable / anon key</label><input id="supabaseAnon" type="password" placeholder="sb_publishable_... أو anon key"><p class="fine-note" data-i18n="publicKeyNote">هذا الحقل مخصص للمفتاح العام فقط مع تفعيل سياسات RLS. لا تضع مفتاح service_role هنا أبداً.</p><button id="saveConfig" class="btn btn-primary full" data-i18n="saveConnection">حفظ إعداد الاتصال</button><button id="testConnection" class="btn btn-outline full" data-i18n="testConnection">اختبار الاتصال</button><div id="connectionMessage" class="status-message"></div></div><div class="panel form-panel"><h3 data-i18n="aiConnection">تخطيط AI النصي</h3><p data-i18n="aiKeyInstruction">تحتاج إلى نشر دالة story-planner على Supabase وإضافة GEMINI_API_KEY في أسرار الدوال. لا تُدخل المفتاح هنا في المتصفح. أبقِ الفوترة غير مفعّلة واستخدم الطبقة المجانية فقط؛ عند نفاد الحصة ستتوقف الميزة بدلاً من الدفع.</p><a class="external-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" data-i18n="getFreeAiKey">فتح صفحة مفتاح AI Studio ↗</a><div class="notice-card small-notice"><span class="notice-symbol">!</span><p data-i18n="privacyAiWarning">النص الذي ترسله للمساعد قد يعالج لدى مزود خارجي. لا ترسل كلمات مرور أو أسراراً أو مواد لا تريد مشاركتها.</p></div></div><div class="panel form-panel"><h3 data-i18n="localBackup">النسخ الاحتياطي المحلي</h3><p data-i18n="backupIntro">صدّر بيانات المشاريع والشخصيات والمهام بصيغة JSON إلى هاتفك. هذه النسخة لا تتضمن ملفات الوسائط الأصلية (الصور والصوت والفيديو).</p><button id="exportBackup" class="btn btn-outline full" data-i18n="downloadBackup">تنزيل نسخة احتياطية</button><label class="btn btn-quiet full file-button" for="importBackup" data-i18n="restoreBackup">استعادة نسخة احتياطية</label><input id="importBackup" type="file" accept="application/json" hidden><button id="clearLocal" class="btn btn-danger full" data-i18n="clearLocalData">مسح بيانات هذا الجهاز</button><p class="fine-note" data-i18n="clearWarning">المسح نهائي على هذا الجهاز. نزّل نسخة احتياطية أولاً.</p></div><div class="panel form-panel"><h3 data-i18n="freeLimits">حدود المجانية</h3><ul class="plain-list"><li data-i18n="limitOne">التوليد المجاني الخارجي قد يفرض طوابير وحدوداً أو يتوقف.</li><li data-i18n="limitTwo">لا يوجد تنزيل فيديو تلقائي.</li><li data-i18n="limitThree">التخزين السحابي المجاني محدود بالحصة.</li><li data-i18n="limitFour">لا يمكن ضمان استئناف كل عملية بعد انقطاع الاتصال.</li></ul><a class="external-link" href="https://supabase.com/docs/guides/platform/billing-on-supabase" target="_blank" rel="noopener noreferrer">Supabase Free plan limits ↗</a></div></div>
+      </section>
+
+      <footer class="app-footer"><span>✦ AI FILM STUDIO</span><span data-i18n="footerNote">واجهة إدارة إنتاج — ميزات التوليد تعتمد على خدمات خارجية متاحة.</span></footer>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="التنقل للهاتف"><button class="active" data-view="home"><span>⌂</span><small data-i18n="navHome">الرئيسية</small></button><button data-view="video"><span>▶</span><small data-i18n="navVideo">فيديو</small></button><button data-view="series"><span>▤</span><small data-i18n="navSeries">المشاريع</small></button><button data-view="characters"><span>♙</span><small data-i18n="navCharacters">الشخصيات</small></button><button data-view="settings"><span>⚙</span><small data-i18n="navSettings">الإعدادات</small></button></nav>
+
+  <dialog id="authDialog" class="auth-dialog"><form method="dialog" class="dialog-close-row"><button class="icon-btn" aria-label="إغلاق">×</button></form><div class="auth-dialog-content"><span class="brand-mark">✦</span><h2 data-i18n="accountSync">الحساب والمزامنة</h2><p data-i18n="accountExplanation">استخدم حساب Supabase لمزامنة البيانات عبر الأجهزة بعد تجهيز قاعدة البيانات. يمكنك حالياً متابعة العمل محلياً دون حساب.</p><form id="authForm"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" required><label for="authPassword" data-i18n="password">كلمة المرور</label><input id="authPassword" type="password" minlength="6" autocomplete="current-password" required><div class="form-row"><button class="btn btn-primary" id="signIn" type="button" data-i18n="signIn">تسجيل الدخول</button><button class="btn btn-outline" id="signUp" type="button" data-i18n="signUp">إنشاء حساب</button></div></form><button class="btn btn-quiet full hidden" id="signOut" data-i18n="signOut">تسجيل الخروج</button><div id="authMessage" class="status-message"></div></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script type="module" src="video-engine.js"></script>
+  <script type="module" src="assembly-engine.js"></script>
+</body>
+</html>
