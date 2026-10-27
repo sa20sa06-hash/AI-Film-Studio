@@ -1,10 +1,11 @@
+
 /*
  * AI FILM STUDIO configuration.
- * Fill these with the Supabase Project URL and PUBLIC anon/publishable key only.
- * Never place service_role keys or private provider keys in this file.
+ * Public Supabase settings only.
+ * Never place service_role keys or private provider keys here.
  */
 window.STUDIO_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: "",
+  supabaseUrl: "https://qmlkysfqgwojcolkqboq.supabase.co",
+  supabaseAnonKey: "sb_publishable_mfIbAsvO3-JvWYWYyf4BWQ_bPNzdVc9",
   plannerFunctionName: "story-planner"
 };
