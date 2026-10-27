@@ -1,0 +1,5 @@
+
+project_id = "ai-film-studio"
+
+[functions.story-planner]
+verify_jwt = true
