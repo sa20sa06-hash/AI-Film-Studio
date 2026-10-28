@@ -25,7 +25,7 @@
   let language = localStorage.getItem('studio-lang') || 'ar';
 
   const $ = (id) => document.getElementById(id);
-  const makeId = () => (crypto && crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const makeId = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`);
   const esc = (value = '') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const formatSize = bytes => { if (!Number.isFinite(bytes)) return ''; if (bytes < 1024) return `${bytes} B`; if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`; return `${(bytes/(1024*1024)).toFixed(1)} MB`; };
   const when = iso => { try { return new Date(iso).toLocaleDateString(language === 'ar' ? 'ar-IQ' : 'en-US'); } catch { return ''; } };
@@ -116,10 +116,14 @@
       const episodeRows=eRes.data||[],sceneRows=sRes.data||[];
       for(const e of episodeRows){const project=state.projects.find(p=>p.id===e.project_id);if(!project)continue;project.episodes=project.episodes||[];let epi=project.episodes.find(x=>x.id===e.id);if(!epi){epi={id:e.id,number:e.episode_number,title:e.title,synopsis:e.synopsis||'',scenes:[]};project.episodes.push(epi)}else Object.assign(epi,{number:e.episode_number,title:e.title,synopsis:e.synopsis||''});}
       for(const s of sceneRows){for(const project of state.projects){for(const e of project.episodes||[]){if(e.id===s.episode_id){e.scenes=e.scenes||[];let sc=e.scenes.find(x=>x.id===s.id);if(!sc)e.scenes.push({id:s.id,number:s.scene_number,title:s.title,description:s.description||''});}}}}
-      const localChars=state.characters;const cloudChars=(cRes.data||[]).map(c=>({id:c.id,projectId:c.project_id||'',name:c.name,description:c.description||'',abilities:c.abilities||'',notes:c.continuity_notes||'',extracted:c.extracted_text||'',imageName:c.reference_storage_path||'',createdAt:c.created_at}));
+      const localChars=state.characters;const cloudChars=(cRes.data||[]).map(c=>({id:c.id,projectId:c.project_id||'',name:c.name,description:c.description||'',abilities:c.abilities||'',notes:c.continuity_notes||'',extracted:c.extracted_text||'',imageName:c.reference_storage_path?String(c.reference_storage_path).split('/').pop():'',storagePath:c.reference_storage_path||null,createdAt:c.created_at}));
       const charMap=new Map([...localChars.map(c=>[c.id,c]),...cloudChars.map(c=>[c.id,{...(localChars.find(x=>x.id===c.id)||{}),...c}])]);state.characters=[...charMap.values()];
       const cloudAssets=(aRes.data||[]).map(a=>({id:a.id,name:a.name,kind:a.kind,mediaId:null,storagePath:a.storage_path,remote:true,type:a.content_type||'',size:a.size_bytes||0,createdAt:a.created_at,projectId:a.project_id||''}));
-      const assetMap=new Map([...state.assets.map(a=>[a.id,a]),...cloudAssets.map(a=>[a.id,{...(state.assets.find(x=>x.id===a.id)||{}),...a}])]);state.assets=[...assetMap.values()];
+      // Keep local IndexedDB IDs when a matching cloud metadata row is loaded.
+      // Setting mediaId to null here would orphan a user's locally stored file.
+      const assetMap=new Map(state.assets.map(a=>[a.id,a]));
+      for(const remoteAsset of cloudAssets){const localAsset=assetMap.get(remoteAsset.id);assetMap.set(remoteAsset.id,{...remoteAsset,...(localAsset||{}),storagePath:remoteAsset.storagePath||localAsset?.storagePath||null,mediaId:localAsset?.mediaId||null,remote:true});}
+      state.assets=[...assetMap.values()];
       const cloudTasks=(jRes.data||[]).map(j=>({id:j.id,title:j.metadata?.title||j.prompt.slice(0,54),prompt:j.prompt,style:j.metadata?.style||'',ratio:j.metadata?.ratio||'16:9',duration:j.metadata?.duration||5,projectId:j.project_id||null,status:j.status,createdAt:j.created_at}));
       const localTasks=state.tasks;const taskMap=new Map([...localTasks.map(x=>[x.id,x]),...cloudTasks.map(x=>[x.id,{...(localTasks.find(y=>y.id===x.id)||{}),...x}])]);state.tasks=[...taskMap.values()];
       // Push local-only metadata to the signed-in user's cloud; do not automatically upload old large media files.
@@ -140,6 +144,21 @@
   }
   async function syncProject(p){return cloudUpsert('projects',{id:p.id,title:p.title,description:p.description,project_type:p.type,status:p.status,metadata:{},updated_at:new Date().toISOString()});}
   async function syncCharacter(c){return cloudUpsert('characters',{id:c.id,project_id:c.projectId||null,name:c.name,description:c.description,abilities:c.abilities,continuity_notes:c.notes,extracted_text:c.extracted,reference_storage_path:c.storagePath||null});}
+  async function uploadCharacterReferenceCloud(character,file){
+    if(!supabaseClient||!currentUser||!file)return false;
+    try{
+      const clean=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      const oldPath=character.storagePath||null;
+      const path=`${currentUser.id}/characters/${character.id}-${clean}`;
+      const {error}=await supabaseClient.storage.from('studio-assets').upload(path,file,{upsert:true,contentType:file.type||'application/octet-stream'});
+      if(error)throw error;
+      character.storagePath=path;
+      if(oldPath&&oldPath!==path){const {error:removeError}=await supabaseClient.storage.from('studio-assets').remove([oldPath]);if(removeError)console.debug('Old character reference cleanup failed',removeError);}
+      await syncCharacter(character);
+      persist();
+      return true;
+    }catch(error){console.warn('Character reference cloud upload failed',error);toast(`${language==='ar'?'حُفظت صورة الشخصية محلياً، لكن تعذر رفعها سحابياً':'Character image saved locally, but cloud upload failed'}: ${error?.message||error}`);return false;}
+  }
   async function syncEpisode(project,ep){await cloudUpsert('episodes',{id:ep.id,project_id:project.id,episode_number:ep.number,title:ep.title,synopsis:ep.synopsis,status:'planning'});for(const sc of ep.scenes||[])await cloudUpsert('scenes',{id:sc.id,episode_id:ep.id,scene_number:sc.number,title:sc.title,description:sc.description,continuity_notes:''});}
   async function syncTask(task){return cloudUpsert('generation_jobs',{id:task.id,project_id:task.projectId||null,prompt:task.prompt,provider:'external-free-provider',status:'saved_prompt',progress:0,metadata:{title:task.title,style:task.style,ratio:task.ratio,duration:task.duration}});}
   async function uploadAssetCloud(asset,file){
@@ -188,8 +207,8 @@
     if(!episodes.length){list.innerHTML=`<div class="empty-state"><span>▤</span><strong>${esc(t('noEpisode'))}</strong></div>`;return;}
     list.innerHTML=episodes.slice().sort((a,b)=>a.number-b.number).map(ep=>`<article class="episode-card"><header><h4>${esc(t('episode'))} ${ep.number}: ${esc(ep.title)}</h4><span class="tag">${(ep.scenes||[]).length} ${esc(t('scene'))}</span></header><p>${esc(ep.synopsis||t('noText'))}</p><div>${(ep.scenes||[]).slice().sort((a,b)=>a.number-b.number).map(sc=>`<span class="scene-badge">${esc(t('scene'))} ${sc.number}: ${esc(sc.title)}</span>`).join('')}</div><div class="row-actions"><button class="mini-button" data-delete-episode="${ep.id}" data-project-id="${project.id}">${esc(t('remove'))}</button></div></article>`).join('');
   }
-  function renderCharacters(){const root=$('characterList');if(!root)return;if(!state.characters.length){root.innerHTML=`<div class="empty-state"><span>♙</span><strong>${esc(t('characterLibrary'))}</strong><p>${esc(t('noProjects'))}</p></div>`;return;}root.innerHTML=state.characters.slice().reverse().map(c=>`<article class="character-card">${c.mediaId?`<div class="character-image-fallback" data-character-media="${c.mediaId}">♙</div>`:`<div class="character-image-fallback">♙</div>`}<div><h4>${esc(c.name)}</h4><p>${esc(c.description||'')}</p><p><strong>${esc(t('abilities'))}:</strong> ${esc(c.abilities||'')}</p>${c.extracted?`<p><strong>${esc(t('reviewExtracted'))}:</strong> ${esc(c.extracted)}</p>`:''}<div class="row-actions"><button class="mini-button" data-edit-character="${c.id}">${esc(t('editCharacter'))}</button><button class="mini-button" data-delete-character="${c.id}">${esc(t('remove'))}</button></div></div></article>`).join('');root.querySelectorAll('[data-character-media]').forEach(async el=>{const url=await getMediaUrl(el.dataset.characterMedia);if(url){const img=document.createElement('img');img.src=url;img.alt='';img.className='character-image';el.replaceWith(img);}});}
-  async function editCharacter(id){const c=state.characters.find(x=>x.id===id);if(!c)return;editingCharacterId=id;$('characterName').value=c.name||'';$('characterDescription').value=c.description||'';$('characterAbilities').value=c.abilities||'';$('characterNotes').value=c.notes||'';$('characterExtracted').value=c.extracted||'';$('saveCharacter').textContent=t('updateCharacter');pendingCharacterFile=null;$('characterImage').value='';if(previewCharacterUrl){URL.revokeObjectURL(previewCharacterUrl);previewCharacterUrl=null;}if(c.mediaId){const url=await getMediaUrl(c.mediaId);if(url){previewCharacterUrl=url;$('characterPreview').innerHTML='';const img=document.createElement('img');img.src=url;img.alt='Character reference preview';$('characterPreview').appendChild(img);}}else $('characterPreview').innerHTML=`<span>♙</span><small>${esc(t('noReference'))}</small>`;goView('characters');$('characterName').focus();}
+  function renderCharacters(){const root=$('characterList');if(!root)return;if(!state.characters.length){root.innerHTML=`<div class="empty-state"><span>♙</span><strong>${esc(t('characterLibrary'))}</strong><p>${esc(t('noProjects'))}</p></div>`;return;}root.innerHTML=state.characters.slice().reverse().map(c=>`<article class="character-card">${c.mediaId?`<div class="character-image-fallback" data-character-media="${c.mediaId}">♙</div>`:c.storagePath?`<div class="character-image-fallback" data-character-storage="${esc(c.storagePath)}">♙</div>`:`<div class="character-image-fallback">♙</div>`}<div><h4>${esc(c.name)}</h4><p>${esc(c.description||'')}</p><p><strong>${esc(t('abilities'))}:</strong> ${esc(c.abilities||'')}</p>${c.extracted?`<p><strong>${esc(t('reviewExtracted'))}:</strong> ${esc(c.extracted)}</p>`:''}<div class="row-actions"><button class="mini-button" data-edit-character="${c.id}">${esc(t('editCharacter'))}</button><button class="mini-button" data-delete-character="${c.id}">${esc(t('remove'))}</button></div></div></article>`).join('');root.querySelectorAll('[data-character-media]').forEach(async el=>{const url=await getMediaUrl(el.dataset.characterMedia);if(url){const img=document.createElement('img');img.src=url;img.alt='';img.className='character-image';el.replaceWith(img);}});root.querySelectorAll('[data-character-storage]').forEach(async el=>{if(!supabaseClient||!currentUser)return;try{const {data,error}=await supabaseClient.storage.from('studio-assets').createSignedUrl(el.dataset.characterStorage,300);if(!error&&data?.signedUrl){const img=document.createElement('img');img.src=data.signedUrl;img.alt='';img.className='character-image';el.replaceWith(img);}}catch(error){console.debug('Remote character image preview unavailable',error);}});}
+  async function editCharacter(id){const c=state.characters.find(x=>x.id===id);if(!c)return;editingCharacterId=id;$('characterName').value=c.name||'';$('characterDescription').value=c.description||'';$('characterAbilities').value=c.abilities||'';$('characterNotes').value=c.notes||'';$('characterExtracted').value=c.extracted||'';$('saveCharacter').textContent=t('updateCharacter');pendingCharacterFile=null;$('characterImage').value='';if(previewCharacterUrl){URL.revokeObjectURL(previewCharacterUrl);previewCharacterUrl=null;}let url=c.mediaId?await getMediaUrl(c.mediaId):null;if(!url&&c.storagePath&&supabaseClient&&currentUser){try{const {data,error}=await supabaseClient.storage.from('studio-assets').createSignedUrl(c.storagePath,300);if(!error)url=data?.signedUrl||null;}catch{}}if(url){previewCharacterUrl=url;$('characterPreview').innerHTML='';const img=document.createElement('img');img.src=url;img.alt='Character reference preview';$('characterPreview').appendChild(img);}else $('characterPreview').innerHTML=`<span>♙</span><small>${esc(t('noReference'))}</small>`;goView('characters');$('characterName').focus();}
 
   async function renderLibrary(){const root=$('libraryGrid');if(!root)return;const search=($('librarySearch')?.value||'').toLowerCase();const filter=$('libraryFilter')?.value||'all';let items=state.assets.filter(a=>(filter==='all'||a.kind===filter)&&(`${a.name} ${a.kind}`).toLowerCase().includes(search));if(!items.length){root.innerHTML=`<div class="empty-state"><span>▧</span><strong>${esc(t('noMedia'))}</strong></div>`;return;}root.innerHTML=items.slice().reverse().map(a=>`<article class="asset-card"><div class="asset-thumb" id="thumb-${a.id}">${a.kind==='video'?'▶':a.kind==='audio'?'♫':a.kind==='image'?'▧':'▤'}</div><div class="asset-info"><strong>${esc(a.name)}</strong><small>${esc(a.kind)} · ${esc(formatSize(a.size||0))}</small><button class="mini-button" data-open-asset="${a.id}">${esc(t('open'))}</button> <button class="mini-button" data-delete-asset="${a.id}">${esc(t('remove'))}</button></div></article>`).join('');for(const a of items){if(!a.mediaId)continue;const url=await getMediaUrl(a.mediaId).catch(()=>null);const thumb=$(`thumb-${a.id}`);if(!thumb||!url)continue;if(a.kind==='video'){const v=document.createElement('video');v.src=url;v.muted=true;v.playsInline=true;thumb.replaceChildren(v);}else if(a.kind==='image'){const img=document.createElement('img');img.src=url;img.alt='';thumb.replaceChildren(img);}}
   }
@@ -201,8 +220,8 @@
   function createTask(){const prompt=$('videoPrompt').value.trim();if(!prompt){toast(t('nameRequired'));return;}const task={id:makeId(),title:prompt.slice(0,54),prompt,style:$('videoStyle').value,ratio:$('videoRatio').value,duration:Number($('videoDuration').value),projectId:$('videoProject').value||null,status:'saved prompt',createdAt:new Date().toISOString()};state.tasks.push(task);persist();syncTask(task);renderTasks();toast(t('promptSaved'));}
   function addEpisode(e){e.preventDefault();const project=state.projects.find(p=>p.id===selectedProjectId)||state.projects[0];if(!project){toast(t('projectMissing'));return;}const title=$('episodeTitle').value.trim();if(!title){toast(t('nameRequired'));return;}project.episodes=project.episodes||[];const episode={id:makeId(),number:project.episodes.length+1,title,synopsis:$('episodeSynopsis').value.trim(),scenes:[]};project.episodes.push(episode);project.updatedAt=new Date().toISOString();selectedProjectId=project.id;persist();syncProject(project);syncEpisode(project,episode);$('episodeForm').reset();renderProjects();toast(t('episodeAdded'));}
   function addScene(e){e.preventDefault();const project=state.projects.find(p=>p.id===selectedProjectId)||state.projects[0];if(!project){toast(t('projectMissing'));return;}const epId=$('sceneEpisode').value;const episode=(project.episodes||[]).find(x=>x.id===epId);if(!episode){toast(t('noEpisode'));return;}const title=$('sceneTitle').value.trim();if(!title){toast(t('nameRequired'));return;}episode.scenes=episode.scenes||[];const scene={id:makeId(),number:episode.scenes.length+1,title,description:$('sceneDescription').value.trim()};episode.scenes.push(scene);project.updatedAt=new Date().toISOString();persist();syncEpisode(project,episode);$('sceneForm').reset();renderProjects();toast(t('sceneAdded'));}
-  async function addCharacter(e){e.preventDefault();const name=$('characterName').value.trim();if(!name){toast(t('nameRequired'));return;}const existing=editingCharacterId?state.characters.find(x=>x.id===editingCharacterId):null;const c={...(existing||{}),id:existing?.id||makeId(),projectId:existing?.projectId||'',name,description:$('characterDescription').value.trim(),abilities:$('characterAbilities').value.trim(),notes:$('characterNotes').value.trim(),extracted:$('characterExtracted').value.trim(),imageName:pendingCharacterFile?.name||existing?.imageName||'',mediaId:existing?.mediaId||null,createdAt:existing?.createdAt||new Date().toISOString()};if(pendingCharacterFile){try{const oldMediaId=c.mediaId;c.mediaId=makeId();await putMedia(c.mediaId,pendingCharacterFile);if(oldMediaId)await deleteMedia(oldMediaId);}catch(err){console.warn(err);toast(t('localFileLimit'));return;}}
-    if(existing){state.characters=state.characters.map(x=>x.id===c.id?c:x);}else state.characters.push(c);persist();await syncCharacter(c);$('characterForm').reset();pendingCharacterFile=null;editingCharacterId=null;$('saveCharacter').textContent=t('saveCharacter');if(previewCharacterUrl){URL.revokeObjectURL(previewCharacterUrl);previewCharacterUrl=null;}$('characterPreview').innerHTML=`<span>♙</span><small>${esc(t('noReference'))}</small>`;$('characterExtracted').value='';renderCharacters();toast(t('characterSaved'));}
+  async function addCharacter(e){e.preventDefault();const name=$('characterName').value.trim();if(!name){toast(t('nameRequired'));return;}const referenceFile=pendingCharacterFile;const existing=editingCharacterId?state.characters.find(x=>x.id===editingCharacterId):null;const c={...(existing||{}),id:existing?.id||makeId(),projectId:existing?.projectId||'',name,description:$('characterDescription').value.trim(),abilities:$('characterAbilities').value.trim(),notes:$('characterNotes').value.trim(),extracted:$('characterExtracted').value.trim(),imageName:referenceFile?.name||existing?.imageName||'',mediaId:existing?.mediaId||null,createdAt:existing?.createdAt||new Date().toISOString()};if(referenceFile){try{const oldMediaId=c.mediaId;c.mediaId=makeId();await putMedia(c.mediaId,referenceFile);if(oldMediaId)await deleteMedia(oldMediaId);}catch(err){console.warn(err);toast(t('localFileLimit'));return;}}
+    if(existing){state.characters=state.characters.map(x=>x.id===c.id?c:x);}else state.characters.push(c);persist();if(currentUser&&referenceFile){const uploaded=await uploadCharacterReferenceCloud(c,referenceFile);if(!uploaded)await syncCharacter(c);}else await syncCharacter(c);$('characterForm').reset();pendingCharacterFile=null;editingCharacterId=null;$('saveCharacter').textContent=t('saveCharacter');if(previewCharacterUrl){URL.revokeObjectURL(previewCharacterUrl);previewCharacterUrl=null;}$('characterPreview').innerHTML=`<span>♙</span><small>${esc(t('noReference'))}</small>`;$('characterExtracted').value='';renderCharacters();toast(t('characterSaved'));}
   async function saveVideoUpload(){if(!pendingVideoFile){toast(t('videoRequired'));return;}const asset={id:makeId(),name:$('assetTitle').value.trim()||pendingVideoFile.name,kind:'video',mediaId:makeId(),size:pendingVideoFile.size,type:pendingVideoFile.type,projectId:$('videoProject').value||'',createdAt:new Date().toISOString()};try{await putMedia(asset.mediaId,pendingVideoFile);}catch(err){toast(t('localFileLimit'));return;}state.assets.push(asset);persist();if(currentUser)await uploadAssetCloud(asset,pendingVideoFile);pendingVideoFile=null;$('videoUpload').value='';$('assetTitle').value='';if(previewVideoUrl){URL.revokeObjectURL(previewVideoUrl);previewVideoUrl=null;}$('videoPreview').innerHTML=`<div class="preview-placeholder">▶</div><span>${esc(t('noPreview'))}</span>`;renderAll();toast(t('fileSaved'));}
   async function addAssemblyFiles(files){for(const file of files){const kind=file.type.startsWith('video/')?'video':file.type.startsWith('audio/')?'audio':file.type.startsWith('image/')?'image':'document';const asset={id:makeId(),name:file.name,kind,mediaId:makeId(),type:file.type,size:file.size,createdAt:new Date().toISOString()};try{await putMedia(asset.mediaId,file);state.assets.push(asset);if(currentUser)await uploadAssetCloud(asset,file);}catch(e){toast(t('localFileLimit'));}}persist();renderAll();toast(t('clipAdded'));}
   async function mergeAssemblyVideos(){
@@ -312,35 +331,87 @@
     if(!parameters.length){root.innerHTML=`<p class="fine-note">${esc(t('apiNoParams'))}</p>`;return;}
     parameters.forEach((param,index)=>{
       const label=String(param.label||param.parameter_name||param.name||`Input ${index+1}`);
-      const component=String(param.component||param.component_type||'Textbox');
+      const component=String(param.component||param.component_type||'');
       const typeInfo=param.type;
-      const typeName=typeof typeInfo==='string'?typeInfo:(typeInfo?.type||typeInfo?.name||'');
+      const typeName=typeof typeInfo==='string'?typeInfo:(typeInfo?.type||typeInfo?.name||param.python_type?.type||'');
       const box=document.createElement('div');box.className='api-parameter';
       const labelEl=document.createElement('label');labelEl.textContent=label;box.appendChild(labelEl);
-      const lower=(component+' '+typeName+' '+label).toLowerCase();
+      const lower=(component+' '+typeName+' '+label+' '+(param.parameter_name||'')).toLowerCase();
       let input;
       if(/file|image|video|audio|upload/.test(lower)){
         input=document.createElement('input');input.type='file';
         if(/image/.test(lower))input.accept='image/*';else if(/audio/.test(lower))input.accept='audio/*';else if(/video/.test(lower))input.accept='video/*';else input.accept='*/*';
-      } else if(/checkbox/.test(lower)) {
-        input=document.createElement('input');input.type='checkbox';input.checked=Boolean(param.default);
+      } else if(/checkbox|bool/.test(lower)) {
+        input=document.createElement('input');input.type='checkbox';input.checked=Boolean(param.default??param.parameter_default);
       } else {
-        const choices=Array.isArray(param.choices)?param.choices:(Array.isArray(param.options)?param.options:(Array.isArray(typeInfo?.values)?typeInfo.values:null));
+        const choiceInfo=param.choices||param.options||typeInfo?.values||typeInfo?.enum||param.python_type?.enum;
+        const choices=Array.isArray(choiceInfo)?choiceInfo:null;
         if(choices?.length){input=document.createElement('select');choices.forEach(choice=>{const opt=document.createElement('option');const value=Array.isArray(choice)?choice[0]:choice;opt.value=String(value);opt.textContent=String(Array.isArray(choice)?choice[1]:choice);input.appendChild(opt);});}
-        else if(/textarea|textbox|text area/.test(lower)) {input=document.createElement('textarea');input.rows=/prompt|description|negative|story/.test(lower)?3:2;}
-        else {input=document.createElement('input');input.type=/number|slider|integer|float/.test(lower)?'number':'text';if(input.type==='number'){if(Number.isFinite(param.minimum))input.min=String(param.minimum);if(Number.isFinite(param.maximum))input.max=String(param.maximum);if(Number.isFinite(param.step))input.step=String(param.step);else input.step='any';}}
-        if(/prompt|description|positive prompt|text input/.test(lower)&&!param.default){input.value=$('videoPrompt').value.trim();}
-        else if(param.default!==undefined&&param.default!==null&&typeof param.default!=='object'){if(input.type==='checkbox')input.checked=Boolean(param.default);else input.value=String(param.default);}
+        else if(/textarea|textbox|text area/.test(lower)||/prompt|description|negative/.test(lower)){input=document.createElement('textarea');input.rows=/prompt|description|negative|story/.test(lower)?3:2;}
+        else {input=document.createElement('input');input.type=/number|slider|integer|float/.test(lower)?'number':'text';if(input.type==='number'){if(Number.isFinite(param.minimum))input.min=String(param.minimum);if(Number.isFinite(param.maximum))input.max=String(param.maximum);if(Number.isFinite(param.step))input.step=String(param.step);else input.step='1';}}
+        const defaultValue=param.default??param.parameter_default;
+        if(/prompt|description|positive prompt|text input/.test(lower)&&!defaultValue){input.value=$('videoPrompt').value.trim();}
+        else if(defaultValue!==undefined&&defaultValue!==null&&typeof defaultValue!=='object'){if(input.type==='checkbox')input.checked=Boolean(defaultValue);else input.value=String(defaultValue);}
       }
       input.id=`video-api-input-${index}`;input.dataset.paramIndex=String(index);input.setAttribute('aria-label',label);box.appendChild(input);
       if(param.description){const small=document.createElement('small');small.textContent=String(param.description);box.appendChild(small);}
       root.appendChild(box);videoApiControls.push({param,input,label,component,typeName});
     });
   }
+
+  function promptForFreeEngine(){
+    const prompt=$('videoPrompt').value.trim();
+    if(!prompt)return '';
+    const styles={
+      anime:'Original anime visual direction; preserve the specified character design and written power level.',
+      cinematic:'Cinematic visual direction with natural motion and scene-appropriate camera movement; preserve the written character abilities.',
+      '2d':'Original 2D animation; preserve the specified character design and written power level.',
+      '3d':'Original 3D animation; preserve the specified character design and written power level.',
+      fantasy:'Original fantasy visual direction; effects must remain proportional to the abilities explicitly described.',
+      scifi:'Original science-fiction visual direction; preserve the specified character design and written power level.'
+    };
+    const suffix=styles[$('videoStyle').value]||styles.anime;
+    return `${prompt}\n\nVisual direction: ${suffix}`;
+  }
+  function setNumericInput(control,value){
+    if(!control||!control.input||control.input.type!=='number')return;
+    const min=control.input.min===''?-Infinity:Number(control.input.min);
+    const max=control.input.max===''?Infinity:Number(control.input.max);
+    const step=Number(control.input.step);
+    let v=Math.max(min,Math.min(max,Number(value)));
+    if(Number.isFinite(step)&&step>0&&Number.isFinite(min))v=min+Math.round((v-min)/step)*step;
+    control.input.value=String(v);
+  }
+  function applyFreeVideoDefaults(spec){
+    const ratio=$('videoRatio').value;
+    const dims=ratio==='9:16'?{width:448,height:768}:ratio==='1:1'?{width:512,height:512}:{width:768,height:448};
+    for(const control of videoApiControls){
+      const l=(control.label+' '+(control.param?.parameter_name||'')).toLowerCase();
+      if(/\bwidth\b/.test(l))setNumericInput(control,dims.width);
+      else if(/\bheight\b/.test(l))setNumericInput(control,dims.height);
+      else if(/seconds|duration|length/.test(l)&&control.input.type==='number')setNumericInput(control,Number($('videoDuration').value)||5);
+      else if(/preset/.test(l)&&control.input.tagName==='SELECT'){
+        const fast=[...control.input.options].find(o=>/^fast$/i.test(o.value)||/^fast$/i.test(o.textContent.trim()));
+        if(fast)control.input.value=fast.value;
+      }
+    }
+  }
   async function inspectFreeVideoApi(){
     if(!window.VideoEngineBridge?.inspect){setMessage('directVideoStatus',t('apiFailed'),true);return;}
     $('inspectVideoEngine').disabled=true;setMessage('directVideoStatus',t('apiConnecting'));$('directVideoResult').replaceChildren();
-    try{const result=await window.VideoEngineBridge.inspect();videoApiEndpoints=result.endpoints||[];if(!videoApiEndpoints.length)throw new Error('No endpoints found');const select=$('videoEndpoint');select.replaceChildren();videoApiEndpoints.forEach((ep,index)=>{const opt=document.createElement('option');opt.value=ep.name;opt.textContent=ep.title||ep.name;select.appendChild(opt);if(index===0)select.value=ep.name;});$('directVideoSetup').classList.remove('hidden');renderVideoApiParameters(videoApiEndpoints[0]);setMessage('directVideoStatus',t('apiConnected'));}
+    try{
+      const result=await window.VideoEngineBridge.inspect();
+      videoApiEndpoints=result.endpoints||[];
+      if(!videoApiEndpoints.length)throw new Error('No safe text-to-video endpoint was identified.');
+      const select=$('videoEndpoint');select.replaceChildren();
+      videoApiEndpoints.forEach((ep,index)=>{const opt=document.createElement('option');opt.value=ep.name;opt.textContent=ep.title||ep.name;select.appendChild(opt);if(index===0)select.value=ep.name;});
+      $('directVideoSetup').classList.remove('hidden');
+      renderVideoApiParameters(videoApiEndpoints[0]);applyFreeVideoDefaults(videoApiEndpoints[0]);
+      const note=language==='ar'
+        ? `تم العثور على نقطة توليد نص إلى فيديو. تم اختيار إعدادات خفيفة افتراضياً للمحاولة المجانية${result.ignoredEndpoints?`، وتجاهل ${result.ignoredEndpoints} نقاط غير مناسبة`:''}.`
+        : `A text-to-video endpoint was identified. Lightweight defaults are selected for the free attempt${result.ignoredEndpoints?`; ignored ${result.ignoredEndpoints} unrelated endpoints`:''}.`;
+      setMessage('directVideoStatus',note);
+    }
     catch(error){console.error(error);setMessage('directVideoStatus',`${t('apiFailed')}\n${error?.message||error}`,true);}
     finally{$('inspectVideoEngine').disabled=false;}
   }
@@ -348,39 +419,102 @@
     if(!window.VideoEngineBridge?.generate){setMessage('directVideoStatus',t('apiFailed'),true);return;}
     const endpoint=$('videoEndpoint').value;const spec=videoApiEndpoints.find(ep=>ep.name===endpoint);if(!spec){toast(t('apiFailed'));return;}
     const prompt=$('videoPrompt').value.trim();if(!prompt){toast(t('nameRequired'));return;}
-    const values=videoApiControls.map(({input,component,typeName,label})=>{
+    applyFreeVideoDefaults(spec);
+    const fullPrompt=promptForFreeEngine();
+    const values=videoApiControls.map(({param,input,label})=>{
+      const l=(label+' '+(param?.parameter_name||'')).toLowerCase();
+      if(/negative/.test(l)&&/prompt/.test(l))return input.value===''?null:input.value;
+      if(/\bprompt\b|positive prompt/.test(l))return fullPrompt;
+      if(/\bwidth\b/.test(l)&&input.type==='number')return Number(input.value);
+      if(/\bheight\b/.test(l)&&input.type==='number')return Number(input.value);
+      if(/seconds|duration|length/.test(l)&&input.type==='number')return Number(input.value||$('videoDuration').value||5);
       if(input.type==='file')return input.files?.[0]||null;
       if(input.type==='checkbox')return input.checked;
       if(input.type==='number')return input.value===''?null:Number(input.value);
-      if(/prompt|description|positive prompt|text input/i.test(label)&&!String(input.value||'').trim())return prompt;
       return input.value===''?null:input.value;
     });
-    $('runDirectVideo').disabled=true;$('inspectVideoEngine').disabled=true;$('directVideoResult').replaceChildren();setMessage('directVideoStatus',t('apiGenerating'));
+    $('runDirectVideo').disabled=true;$('inspectVideoEngine').disabled=true;$('directVideoResult').replaceChildren();
+    const safetyNote=Number($('videoDuration').value)>6
+      ? (language==='ar'?'المدة المختارة أطول من المدة الموصى بها للمحاولة المجانية؛ قد يفشل الطلب. جارٍ المحاولة بالإعداد المحدد…':'The selected duration is longer than recommended for a free attempt and may fail. Trying the selected duration…')
+      : t('apiGenerating');
+    setMessage('directVideoStatus',safetyNote);
     try{
-      const result=await window.VideoEngineBridge.generate('techfreakworm/LTX2.3-Studio',endpoint,values,status=>{const stage=status?.stage||'';const message=stage==='pending'?t('apiQueue'):stage==='generating'?t('apiRunning'):status?.message||t('apiGenerating');setMessage('directVideoStatus',status?.position?`${message} (${status.position})`:message);});
+      const result=await window.VideoEngineBridge.generate('techfreakworm/LTX2.3-Studio',endpoint,values,status=>{
+        const stage=status?.stage||'';
+        const message=stage==='pending'?t('apiQueue'):stage==='generating'?t('apiRunning'):status?.message||t('apiGenerating');
+        setMessage('directVideoStatus',status?.position?`${message} (${status.position})`:message);
+      });
       showVideoApiResult(result);
     }catch(error){console.error(error);setMessage('directVideoStatus',`${t('apiFailed')}\n${error?.message||error}`,true);}
     finally{$('runDirectVideo').disabled=false;$('inspectVideoEngine').disabled=false;}
   }
-  function collectOutputFiles(value,found=[],seen=new Set()){
-    if(value==null)return found;if(typeof value==='string'){if(/^https?:\/\//i.test(value)&&/\.(mp4|webm|mov|m4v|mp3|wav|png|jpe?g|webp)(?:[?#].*)?$/i.test(value)&&!seen.has(value)){seen.add(value);found.push({url:value,name:value.split('/').pop().split(/[?#]/)[0]||'generated-output'});}return found;}
-    if(Array.isArray(value)){value.forEach(item=>collectOutputFiles(item,found,seen));return found;}
+  function collectOutputFiles(value,found=[],seen=new Set(),hint=''){
+    if(value==null)return found;
+    if(typeof value==='string'){
+      const isFileUrl=/^https?:\/\//i.test(value)&&(/\.(mp4|webm|mov|m4v)(?:[?#].*)?$/i.test(value)||(/gradio_api\/file=/.test(value)&&/\.(mp4|webm|mov|m4v)(?:[?#].*)?$/i.test(value)));
+      if(isFileUrl&&!seen.has(value)){seen.add(value);found.push({url:value,name:value.split('/').pop().split(/[?#]/)[0]||'generated-output',mime:'',hint});}
+      return found;
+    }
+    if(Array.isArray(value)){value.forEach(item=>collectOutputFiles(item,found,seen,hint));return found;}
     if(typeof value==='object'){
       const url=typeof value.url==='string'?value.url:typeof value.path==='string'&&/^https?:\/\//i.test(value.path)?value.path:null;
-      const mime=String(value.mime_type||value.mimeType||value.type||'');const name=String(value.orig_name||value.name||value.path||'generated-output');
-      if(url&&!seen.has(url)){seen.add(url);found.push({url,name,mime});}
-      Object.entries(value).forEach(([key,v])=>{if(!['url','path','orig_name','name','mime_type','mimeType','type','meta'].includes(key))collectOutputFiles(v,found,seen);});
+      const mime=String(value.mime_type||value.mimeType||value.type||value.content_type||'');
+      const name=String(value.orig_name||value.name||value.filename||value.path||hint||'generated-output');
+      if(url&&!seen.has(url)){seen.add(url);found.push({url,name,mime,hint});}
+      Object.entries(value).forEach(([key,v])=>{if(!['url','path','orig_name','name','filename','mime_type','mimeType','content_type','type','meta','size'].includes(key))collectOutputFiles(v,found,seen,key);});
     }
     return found;
   }
+  function isVideoOutput(out){return /video\//i.test(out.mime||'')||/\.(mp4|webm|mov|m4v)(?:[?#].*)?$/i.test(out.name||'')||/\.(mp4|webm|mov|m4v)(?:[?#].*)?$/i.test(out.url||'')||(/video/i.test(out.hint||'')&&/gradio_api\/file=/i.test(out.url||''));}
   function showVideoApiResult(result){
-    const root=$('directVideoResult');root.replaceChildren();const outputs=collectOutputFiles(result);if(!outputs.length){const pre=document.createElement('pre');pre.className='fine-note';pre.textContent=JSON.stringify(result,null,2).slice(0,5000)||t('apiNoOutputs');root.appendChild(pre);setMessage('directVideoStatus',t('apiComplete'));return;}
-    outputs.forEach((out,index)=>{const row=document.createElement('div');row.className='direct-result-item';const link=document.createElement('a');link.href=out.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=`${t('apiOpenOutput')}: ${out.name}`;row.appendChild(link);if(/video|\.mp4|\.webm|\.mov/i.test(`${out.mime||''} ${out.name} ${out.url}`)){const video=document.createElement('video');video.controls=true;video.playsInline=true;video.src=out.url;row.appendChild(video);}
-      const button=document.createElement('button');button.className='btn btn-outline full';button.textContent=t('apiImport');button.addEventListener('click',()=>importGeneratedOutput(out.url,out.name));row.appendChild(button);root.appendChild(row);});setMessage('directVideoStatus',t('apiComplete'));
+    const root=$('directVideoResult');root.replaceChildren();
+    const outputs=collectOutputFiles(result).filter(isVideoOutput);
+    if(!outputs.length){
+      const pre=document.createElement('pre');pre.className='fine-note';pre.textContent=JSON.stringify(result,null,2).slice(0,3000)||t('apiNoOutputs');root.appendChild(pre);
+      const message=language==='ar'
+        ? 'لم يُرجع المحرك ملف فيديو يمكن التحقق منه؛ لم نعتبر الطلب ناجحاً. افتح واجهة LTX الخارجية لمعرفة الخطأ أو جرّب Fast ومدة 5–6 ثوانٍ ودقة منخفضة.'
+        : 'The engine did not return a verifiable video file, so this request is not marked successful. Open the external LTX UI to inspect the error, or try Fast, 5–6 seconds, and a lower resolution.';
+      setMessage('directVideoStatus',message,true);return;
+    }
+    outputs.forEach(out=>{
+      const row=document.createElement('div');row.className='direct-result-item';
+      const link=document.createElement('a');link.href=out.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=`${t('apiOpenOutput')}: ${out.name}`;row.appendChild(link);
+      const video=document.createElement('video');video.controls=true;video.playsInline=true;video.preload='metadata';video.src=out.url;row.appendChild(video);
+      const button=document.createElement('button');button.className='btn btn-outline full';button.textContent=t('apiImport');button.addEventListener('click',()=>importGeneratedOutput(out.url,out.name));row.appendChild(button);root.appendChild(row);
+    });
+    setMessage('directVideoStatus',language==='ar'?'تم التحقق من رابط فيديو من المحرك. يمكنك معاينته أو حفظه في المكتبة.':'A video file link was returned. You can preview it or save it to the library.');
   }
   async function importGeneratedOutput(url,name){
-    try{toast(t('loading'));const response=await fetch(url);if(!response.ok)throw new Error(`HTTP ${response.status}`);const blob=await response.blob();const file=new File([blob],name||`generated-${Date.now()}.mp4`,{type:blob.type||'video/mp4'});const kind=file.type.startsWith('audio/')?'audio':file.type.startsWith('image/')?'image':'video';const asset={id:makeId(),name:file.name,kind,mediaId:makeId(),size:file.size,type:file.type,projectId:$('videoProject').value||'',createdAt:new Date().toISOString()};await putMedia(asset.mediaId,file);state.assets.push(asset);persist();if(currentUser)await uploadAssetCloud(asset,file);renderAll();toast(t('fileSaved'));}
-    catch(error){console.warn(error);toast(`${t('apiNoOutputs')} ${error?.message||''}`);window.open(url,'_blank','noopener,noreferrer');}
+    try{
+      toast(t('loading'));
+      const response=await fetch(url,{mode:'cors'});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const maxImportBytes=200*1024*1024;
+      const advertisedSize=Number(response.headers.get('content-length')||0);
+      if(advertisedSize>maxImportBytes)throw new Error('The video exceeds the app\'s preferred 200 MB transfer target. Open the link and download it manually if you still need it.');
+      let blob;
+      if(response.body?.getReader){
+        const reader=response.body.getReader(),chunks=[];let total=0;
+        try{while(true){const part=await reader.read();if(part.done)break;total+=part.value?.byteLength||0;if(total>maxImportBytes){await reader.cancel();throw new Error('The video exceeds the app\'s preferred 200 MB transfer target. Open the link and download it manually if you still need it.');}chunks.push(part.value);}}
+        finally{try{reader.releaseLock();}catch{}}
+        blob=new Blob(chunks,{type:response.headers.get('content-type')||''});
+      }else blob=await response.blob();
+      if(blob.size>maxImportBytes)throw new Error('The video exceeds the app\'s preferred 200 MB transfer target. Open the link and download it manually if you still need it.');
+      const head=new Uint8Array(await blob.slice(0,16).arrayBuffer());
+      const hasMp4=head.length>=8&&String.fromCharCode(...head.slice(4,8))==='ftyp';
+      const hasWebm=head.length>=4&&head[0]===0x1a&&head[1]===0x45&&head[2]===0xdf&&head[3]===0xa3;
+      const inferredType=/\.webm(?:[?#].*)?$/i.test(name||url)?'video/webm':'video/mp4';
+      if(!blob.type.startsWith('video/')&&!hasMp4&&!hasWebm)throw new Error('The downloaded response does not appear to be a video file.');
+      const file=new File([blob],name||`generated-${Date.now()}.mp4`,{type:blob.type.startsWith('video/')?blob.type:(hasWebm?'video/webm':inferredType)});
+      const asset={id:makeId(),name:file.name,kind:'video',mediaId:makeId(),size:file.size,type:file.type,projectId:$('videoProject').value||'',createdAt:new Date().toISOString()};
+      await putMedia(asset.mediaId,file);state.assets.push(asset);persist();if(currentUser)await uploadAssetCloud(asset,file);renderAll();toast(t('fileSaved'));
+    }
+    catch(error){
+      console.warn(error);
+      const message=String(error?.message||'');
+      toast(`${language==='ar'?'تعذر حفظ الفيديو محلياً':'Could not save the video locally'}: ${message}`);
+      window.open(url,'_blank','noopener,noreferrer');
+    }
   }
 
   // Make the main interface usable before cloud setup, with local browser storage.
